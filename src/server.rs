@@ -1,3 +1,4 @@
+#[cfg(feature = "apns")]
 use a2::{
     CollapseId, DefaultNotificationBuilder, Error::ResponseError, NotificationBuilder,
     NotificationOptions, Priority, PushType,
@@ -167,6 +168,7 @@ async fn notify_ubports(
 ///
 /// API documentation is available at
 /// <https://firebase.google.com/docs/cloud-messaging/send-message#rest>
+#[cfg(feature = "fcm")]
 async fn notify_fcm(
     client: &reqwest::Client,
     fcm_api_key: Option<&str>,
@@ -212,6 +214,7 @@ async fn notify_fcm(
     Ok(StatusCode::OK)
 }
 
+#[cfg(feature = "apns")]
 async fn notify_apns(state: State, client: a2::Client, device_token: String) -> Result<StatusCode> {
     let schedule = state.schedule();
     let payload = DefaultNotificationBuilder::new()
@@ -321,27 +324,42 @@ async fn notify_device(
             package_name,
             token,
         } => {
-            let client = state.fcm_client().clone();
-            let Ok(fcm_token) = state.fcm_token().await else {
-                return Ok(StatusCode::INTERNAL_SERVER_ERROR);
-            };
-            let metrics = state.metrics();
-            notify_fcm(
-                &client,
-                fcm_token.as_deref(),
-                &package_name,
-                &token,
-                metrics,
-            )
-            .await?
+            #[cfg(feature = "fcm")]
+            {
+                let client = state.fcm_client().clone();
+                let Ok(fcm_token) = state.fcm_token().await else {
+                    return Ok(StatusCode::INTERNAL_SERVER_ERROR);
+                };
+                let metrics = state.metrics();
+                notify_fcm(
+                    &client,
+                    fcm_token.as_deref(),
+                    &package_name,
+                    &token,
+                    metrics,
+                )
+                .await?
+            }
+            #[cfg(not(feature = "fcm"))]
+            StatusCode::NOT_IMPLEMENTED
         }
         NotificationToken::ApnsSandbox(token) => {
-            let client = state.sandbox_client().clone();
-            notify_apns(state, client, token).await?
+            #[cfg(feature = "apns")]
+            {
+                let client = state.sandbox_client().clone();
+                notify_apns(state, client, token).await?
+            }
+            #[cfg(not(feature = "apns"))]
+            StatusCode::NOT_IMPLEMENTED
         }
         NotificationToken::ApnsProduction(token) => {
-            let client = state.production_client().clone();
-            notify_apns(state, client, token).await?
+            #[cfg(feature = "apns")]
+            {
+                let client = state.production_client().clone();
+                notify_apns(state, client, token).await?
+            }
+            #[cfg(not(feature = "apns"))]
+            StatusCode::NOT_IMPLEMENTED
         }
     };
     Ok(status_code)

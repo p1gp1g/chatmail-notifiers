@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-a2 = { git = "https://github.com/WalletConnect/a2/", branch = "master" }
+a2 = { git = "https://github.com/WalletConnect/a2/", branch = "master", optional = true }
 anyhow = "1.0.32"
 axum = "0.7.5"
 base64 = "0.22.1"
@@ -27,3 +27,8 @@ yup-oauth2 = "9.0.0"
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+default = ["apns", "fcm"]
+apns = [ "dep:a2" ]
+fcm = []
